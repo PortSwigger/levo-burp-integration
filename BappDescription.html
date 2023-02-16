@@ -1,9 +1,17 @@
-<p>This extension helps you to create OpenApi specifications for your APIs based on the traffic captured by Burp.</p>
-<p>This extension needs Levo's Satellite service to running at localhost:9999. See <a href="https://docs.levo.ai/api-observability/install-guide/install-satellite#install-on-linux-host-via-docker-compose">Levo docs</a> for instructions on how to run Satellite with docker compose.</p>
-<p>Once you have the Satellite service, this extension sends all the JSON based HTTP request and responses to Levo's Satellite, which builds specs and uploads them to Levo SaaS. All your data is dropped on the Satellite host itself and <b>not sent to Levo's SaaS</b>.</p>
+<p>Build OpenApi specs from Burp's traffic using Levo.ai. Also detect and classify the PII and annotate specs with the PII details.</p>
 
-<p>There are the following configuration options in the menu bar:</p>
+<p><strong>Note:</strong> No actual traffic or sensitive data will be sent to Levo AI Saas.</p>
+
+<p>How does that work?</p>
 <ul>
-    <li>Send only requests from defined target scope.</li>
-    <li>Pause sending the traffic to Levo's Satellite.</li>
+	<li>Bring up Levo's Satellite service locally using Docker compose.</li>
+	<li>Turn on sending traffic to Levo in Burp using config menu.</li>
+	<li>Start using Burp like you normally do. Extension sends the API traffic (only few valid content types are supported) to Levo's Satellite</li>
+	<li>Levo's Satellite that's running locally will process the traffic, sends OpenApi specs to Levo's cloud service. You can view the specs in Levo's UI.</li>
+	<li>PII detection also fully runs locally in Satellite and only the PII types are sent to Levo's cloud service. You can view the PII types in Levo's UI.</li>
+	<li><strong>None of your API data is sent to Levo's cloud service. Only OpenApi specs are sent to Levo's cloud service.</strong></li>
 </ul>
+
+<p>By default, OpenApi specs are built for all the traffic. You can limit the scope to target scopes only by enabling the option in the config menu.</p>
+
+<p>By default, the traffic isn't sent to Levo. You can enable it using the config menu.</p>

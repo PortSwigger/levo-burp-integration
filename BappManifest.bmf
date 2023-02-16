@@ -1,0 +1,13 @@
+Uuid: e1772ac14930453b98d5bff8c4f8b0cd
+ExtensionType: 1
+Name: Levo.ai Burp Integration
+RepoName: levo-burp-integration
+ScreenVersion: 0.1.8
+SerialVersion: 3
+MinPlatformVersion: 0
+ProOnly: False
+Author: Levo Inc
+ShortDescription: Build OpenApi specs from Burp's traffic using Levo.ai. Also detect and classify the PII and annotate specs with the PII details.
+EntryPoint: build/libs/LevoAiBurpExtension.jar
+BuildCommand: ./gradlew fatJar
+SupportedProducts: Pro, Community
