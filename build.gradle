@@ -11,7 +11,7 @@ apply plugin: 'java'
 apply plugin: 'maven-publish'
 
 group 'ai.levo'
-version '0.1.8'
+version '0.1.11'
 
 def burpExtensionHomepage = 'https://github.com/levoai/levoai-burp-extension'
 def burpExtensionJarName = 'LevoAiBurpExtension.jar'
@@ -22,7 +22,7 @@ repositories {
 
 dependencies {
     implementation('net.portswigger.burp.extender:burp-extender-api:2.3')
-    implementation('com.fasterxml.jackson.core:jackson-databind:2.14.1')
+    implementation('com.fasterxml.jackson.core:jackson-databind:2.15.2')
 }
 
 compileJava {

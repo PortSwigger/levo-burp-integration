@@ -1,10 +1,11 @@
 package ai.levo;
 
 import ai.levo.exceptions.SatelliteMessageFailed;
-import burp.*;
+import burp.IBurpExtenderCallbacks;
+import burp.IExtensionStateListener;
+import burp.IRequestInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-import java.io.UnsupportedEncodingException;
 import java.util.*;
 
 /**
@@ -19,8 +20,13 @@ public class HttpMessagePublisher implements IExtensionStateListener {
 
     private static final List<String> ACCEPTED_CONTENT_TYPES = Arrays.asList(
             "application/json",
-            "application/x-www-form-urlencoded"
+            "application/x-www-form-urlencoded",
+            "application/pdf",
+            "text/json",
+            "text/plain"
     );
+    // Don't send the response body for these content types
+    private static final Set<String> DROP_CONTENT_OF_TYPES = Set.of("application/pdf");
     private static final String SERVICE_NAME_RESOURCE_KEY = "service_name";
 
     private final IBurpExtenderCallbacks callbacks;
@@ -94,7 +100,11 @@ public class HttpMessagePublisher implements IExtensionStateListener {
 
         // Add the method and path separately in the headers.
         request.getHeaders().put(":method", reqInfo.getMethod());
-        request.getHeaders().put(":path", reqInfo.getUrl().getPath());
+        if (reqInfo.getUrl().getQuery() != null && !reqInfo.getUrl().getQuery().isEmpty()) {
+            request.getHeaders().put(":path", reqInfo.getUrl().getPath() + "?" + reqInfo.getUrl().getQuery());
+        } else {
+            request.getHeaders().put(":path", reqInfo.getUrl().getPath());
+        }
 
         String requestBody = callbacks.getHelpers().bytesToString(reqContent);
         String[] parts = requestBody.split(TWO_LINES_PATTERN);
@@ -106,15 +116,6 @@ public class HttpMessagePublisher implements IExtensionStateListener {
         }
 
         HttpMessage.Response response = new HttpMessage.Response();
-        String responseBody = callbacks.getHelpers().bytesToString(resContent);
-        parts = responseBody.split(TWO_LINES_PATTERN);
-        if (parts.length > 1 && parts[1].length() > 0) {
-            // Base64 encode the response body.
-            response.setBody(callbacks.getHelpers().base64Encode(parts[1]));
-        } else {
-            // Don't drop the message if the response body is empty.
-            response.setBody("");
-        }
 
         // Create response headers from the first part of the response. Ignore the status line.
         String[] responseHeaders = parts[0].split(NEW_LINE_PATTERN);
@@ -126,8 +127,24 @@ public class HttpMessagePublisher implements IExtensionStateListener {
         }
 
         // Ignore if the response isn't acceptable content type
-        if (shouldDropMessage(response.getHeaders().get(CONTENT_TYPE_HEADER))) {
+        String contentType = response.getHeaders().get(CONTENT_TYPE_HEADER);
+        if (shouldDropMessage(contentType)) {
             return null;
+        }
+
+        if (contentType != null && DROP_CONTENT_OF_TYPES.contains(contentType)) {
+            alertWriter.writeAlert("Not sending response body for content-type: " + contentType + " to Levo.");
+            response.setBody("");
+        } else {
+            String responseBody = callbacks.getHelpers().bytesToString(resContent);
+            parts = responseBody.split(TWO_LINES_PATTERN);
+            if (parts.length > 1 && parts[1].length() > 0) {
+                // Base64 encode the response body.
+                response.setBody(callbacks.getHelpers().base64Encode(parts[1]));
+            } else {
+                // Don't drop the message if the response body is empty.
+                response.setBody("");
+            }
         }
 
         // Add the status code separately in the headers.
@@ -140,6 +157,7 @@ public class HttpMessagePublisher implements IExtensionStateListener {
         httpMessage.setSpanKind("SERVER");
         httpMessage.setTraceId(UUID.randomUUID().toString());
         httpMessage.setSpanId(UUID.randomUUID().toString());
+        httpMessage.setRequestTimeNs(System.currentTimeMillis() * 1000000);
         return httpMessage;
     }
 
