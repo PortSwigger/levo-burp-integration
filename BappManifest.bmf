@@ -3,7 +3,7 @@ ExtensionType: 1
 Name: Levo.ai Burp Integration
 RepoName: levo-burp-integration
 ScreenVersion: 0.1.11
-SerialVersion: 4
+SerialVersion: 5
 MinPlatformVersion: 0
 ProOnly: False
 Author: Levo Inc
