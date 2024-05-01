@@ -2,8 +2,8 @@ Uuid: e1772ac14930453b98d5bff8c4f8b0cd
 ExtensionType: 1
 Name: Levo.ai Burp Integration
 RepoName: levo-burp-integration
-ScreenVersion: 0.1.11
-SerialVersion: 5
+ScreenVersion: 0.1.12
+SerialVersion: 6
 MinPlatformVersion: 0
 ProOnly: False
 Author: Levo Inc
