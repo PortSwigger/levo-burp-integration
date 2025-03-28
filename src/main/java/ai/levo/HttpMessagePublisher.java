@@ -33,11 +33,13 @@ public class HttpMessagePublisher implements IExtensionStateListener {
     private static final String SENSOR_TYPE_VALUE = "BURP_EXTENSION";
     private static final String SENSOR_VERSION_KEY = "sensor_version";
     private static final String HOST_NAME_KEY = "host_name";
+    private static final String ENVIRONMENT_KEY = "levo_env";
     private static final Map<String, String> RESOURCE_MAP;
 
     static {
         String hostname = "unknown";
         String version = "unknown";
+        String env = "staging";
         try {
             // Get version from settings.properties
             var props = new Properties();
@@ -45,12 +47,13 @@ public class HttpMessagePublisher implements IExtensionStateListener {
             version = props.getProperty("version", "unknown");
             hostname = InetAddress.getLocalHost().getHostName();
         } catch (Exception ignored) {}
-        RESOURCE_MAP = Map.of(
+        RESOURCE_MAP = new HashMap<String, String>(Map.of(
             SERVICE_NAME_RESOURCE_KEY, DEFAULT_SERVICE_NAME,
             SENSOR_TYPE_KEY, SENSOR_TYPE_VALUE,
             SENSOR_VERSION_KEY, version,
-            HOST_NAME_KEY, hostname
-        );
+            HOST_NAME_KEY, hostname,
+            ENVIRONMENT_KEY, env
+        ));
     }
 
 
@@ -120,6 +123,7 @@ public class HttpMessagePublisher implements IExtensionStateListener {
 
         // Ignore if the request body isn't acceptable content type
         if (shouldDropMessage(request.getHeaders().get(CONTENT_TYPE_HEADER))) {
+            this.alertWriter.writeAlert("Dropping because of content-type header not present");
             return null;
         }
 
@@ -131,19 +135,19 @@ public class HttpMessagePublisher implements IExtensionStateListener {
             request.getHeaders().put(":path", reqInfo.getUrl().getPath());
         }
 
-        String requestBody = callbacks.getHelpers().bytesToString(reqContent);
-        String[] parts = requestBody.split(TWO_LINES_PATTERN);
-        if (parts.length > 1 && parts[1].length() > 0) {
+        String[] requestParts = callbacks.getHelpers().bytesToString(reqContent).split(TWO_LINES_PATTERN);
+        if (requestParts.length > 1 && !requestParts[1].isEmpty()) {
             // Base64 encode the body.
-            request.setBody(callbacks.getHelpers().base64Encode(parts[1]));
+            request.setBody(callbacks.getHelpers().base64Encode(requestParts[1]));
         } else {
             request.setBody("");
         }
 
         HttpMessage.Response response = new HttpMessage.Response();
+        String[] responseParts = callbacks.getHelpers().bytesToString(resContent).split(TWO_LINES_PATTERN);
 
         // Create response headers from the first part of the response. Ignore the status line.
-        String[] responseHeaders = parts[0].split(NEW_LINE_PATTERN);
+        String[] responseHeaders = responseParts[0].split(NEW_LINE_PATTERN);
         if (responseHeaders.length > 1) {
             // Create a list from an array and remove the first element since that's status line.
             List<String> headers = java.util.Arrays.asList(responseHeaders);
@@ -154,6 +158,7 @@ public class HttpMessagePublisher implements IExtensionStateListener {
         // Ignore if the response isn't acceptable content type
         String contentType = response.getHeaders().get(CONTENT_TYPE_HEADER);
         if (shouldDropMessage(contentType)) {
+            this.alertWriter.writeAlert("Dropping because content-type not being instrumented.");
             return null;
         }
 
@@ -161,11 +166,9 @@ public class HttpMessagePublisher implements IExtensionStateListener {
             alertWriter.writeAlert("Not sending response body for content-type: " + contentType + " to Levo.");
             response.setBody("");
         } else {
-            String responseBody = callbacks.getHelpers().bytesToString(resContent);
-            parts = responseBody.split(TWO_LINES_PATTERN);
-            if (parts.length > 1 && parts[1].length() > 0) {
+            if (responseParts.length > 1 && !responseParts[1].isEmpty()) {
                 // Base64 encode the response body.
-                response.setBody(callbacks.getHelpers().base64Encode(parts[1]));
+                response.setBody(callbacks.getHelpers().base64Encode(responseParts[1]));
             } else {
                 // Don't drop the message if the response body is empty.
                 response.setBody("");
@@ -174,6 +177,12 @@ public class HttpMessagePublisher implements IExtensionStateListener {
 
         // Add the status code separately in the headers.
         response.getHeaders().put(":status", statusCode);
+
+        // Update the environment (if provided) in the resource
+        String environment = this.satelliteService.getEnvironment();
+        if (environment != null && !environment.isEmpty()) {
+            RESOURCE_MAP.put(ENVIRONMENT_KEY, environment);
+        }
 
         HttpMessage httpMessage = new HttpMessage();
         httpMessage.setRequest(request);
